@@ -97,6 +97,8 @@ class Hash:
         if statistics:
             author_hash["statistics"] = statistics
 
+    def set_hash(hash_from_db):
+        author_hash = hash_from_db
 
 class Origin:
     'Originality Algorithm'
