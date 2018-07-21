@@ -1,23 +1,101 @@
-class AuthorHash:
-    'Uniqueness string'
+ALGORITHM_VERSION = 0.1
 
-    LENGTH = 200
-    NUM_DECIMALS = 4
+class Comparison:
 
+    DATABASE = 'hash-database'
+    db = []
+
+    def __init__(self):
+        """Connect to database"""
+        from pymogo import Connection
+        connection = Connection()
+        self.db = connection[DATABASE]
+
+    def get_similarity_score(self, new_hash, old_hashes):
+        """Returns weighted average of cosine similarity"""
+        date_created = [item["metadata"]["date_created"] for item in old_hashes]
+        ages = [(time.now() - date) for date in date_created]
+        weights = [(1.0 / age) for age in ages]
+
+        def get_cosine_similarity(self, hash1, hash2):
+            from sklearn.metrics.pairwise import cosine_similarity
+            return float(cosine_similarity([hash1], [hash2]))
+
+        score = [get_cosine_similarity(new_hash, old_hash) for old_hash in old_hashes]
+        score = (scores * weights) / sum(weights)
+        return score
+
+    def find_student_hash(self, student_id):
+        """Pulls hashes from database"""
+        hashes = db.posts.find({"student_id": student_id})
+        return hashes
+
+    def insert_student_hash(self, new_hash):
+        """Adds hash to database"""
+        if new_hash.is_complete():
+            db.posts.insert(new_hash)
+        else:
+            print("Hash incomplete, not added to database")
+
+
+
+
+
+
+class Hash:
+    'Uniqueness dictionary'
+    """
+    hash: {
+        metadata: {
+            student_id,
+            genre,
+            date_created,
+            date_last_used,
+            algorithm_version,
+            num_comparisons,
+            num_correct_comparisons
+        }
+        neural: [
+            vector
+        ]
+        statistics: {
+            word_count,
+            rare_word_count,
+            grammar_score
+        }
+    }
+
+    """
     author_hash = {}
 
     def __init__(self):
-        pass
+        author_hash = {
+            "metadata": {},
+            "neural": [],
+            "vector": {}
+        }
 
-    def create_hash(self, vector):
-        """Convert vector into hash dictionary"""
-        hash = {}
-        author_hash["metadata"] = []
-        author_hash["statistics"] = []
-        author_hash["neural"] = vector
-        return author_hash
+    def is_complete(self):
+        if author_hash["metadata"] &&
+            author_hash["statistics"]  &&
+            author_hash["neural"]:
+            return True
 
-    def retrieve_hash(self, hashed):
+    def create_hash(self, student_id, vector, genre=None, statistics=None):
+        """Create hash with metadata, vector, and statistics"""
+
+        author_hash["metadata"] = {
+            "student_id": student_id,
+            "genre": genre,
+            "date_created": time.now(),
+            "date_last_used": 0,
+            "algorithm_version": ALGORITHM_VERSION,
+            "num_comparisons": 0,
+            "num_correct_comparisons": 0
+        }
+        author_hash["vector"] = vector
+        if statistics:
+            author_hash["statistics"] = statistics
 
 
 class Origin:
