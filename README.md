@@ -17,8 +17,8 @@ Summer 2018
 * **data/5-300-lstm128-128-20-50-model.h5**:  The trained Keras model.  Trained by open.ipynb and used in orgin.py.
 
 ## Installation instructions
-1.  Install anaconda from https://www.anaconda.com
-2.  conda env create -f environment.yml
-3.  source activate tensorflow_36
-4.  jupyter lab
-5.  Run origin-test.ipynb
+1. Install anaconda from https://www.anaconda.com
+2. ```conda env create -f environment.yml```
+3. ```source activate tensorflow_p36```
+4. ```jupyter lab```
+5. Open **origin-test.ipynb**
