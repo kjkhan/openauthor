@@ -3,10 +3,10 @@ import time
 
 DEBUG = True
 ALGORITHM_VERSION = 0.1
-MODEL = 'data/1-lstm32-model.h5'
-TOKENIZER = 'data/tokenizer.pickle'
+MODEL = 'data/5-300-lstm128-128-20-50-model.h5'
 DATABASE = 'hash-database'
-MAX_SEQUENCE_LENGTH = 500
+WINDOW_SIZE = 200
+WINDOW_SPACING = 50
 
 def debug_print(text):
     if DEBUG:
@@ -20,11 +20,12 @@ class Interface:
         debug_print("Started interface")
 
     def score(self, id, text):
-        new_hash = Origin().create_hash(id, text)
+        new_hash = Originality().create_hash(id, text)
         score = Comparison().compare(new_hash)
         return score
 
 class Database:
+    'Connect to database; find and delete data'
     db = None
 
     def __init__(self):
@@ -69,24 +70,35 @@ class Comparison:
         db = Database()
         old_hashes = db.find(new_hash.get_id())
         score, scores = self.score(new_hash, old_hashes)
-        self.printout(new_hash, old_hashes, scores)
+        self.printout(new_hash, old_hashes, scores, verbose=True)
         db.insert(new_hash)
         return score
 
-    def printout(self, new_hash, old_hashes, scores):
+    def printout(self, new_hash, old_hashes, scores, verbose=False):
         from time import gmtime, strftime
-
-        print("\nAuthor ID:", new_hash.get_id())
-        print("Submitted text: '{}...'".format(new_hash.get_text()[0:51]))
+        
+        newline = "\n"
+        report = newline + "Author ID: {}".format(new_hash.get_id())
+        report += newline + "Submitted text: '{}...'".format(new_hash.get_text()[0:51])
         if scores == []:
-            print("Score:  -1 (new author; nothing to compare)")
+            report += newline + "Score:  -1 (new author; nothing to compare)"
         else:
-            print("Average score: {0:0.5f}".format(np.mean(scores)))
-            print("\nHere's a comparision against prior submissions:")
+            score = np.mean(scores)
+            report += newline + "Average score: {0:0.5f}".format(np.mean(score))
+            if score > 0.8:
+                report += newline + "Submission likely by same author"
+            elif score < 0.2:
+                report += newline + "Submission likely from different author"
+            else:
+                report += newline + "Unsure of submission is from same or different author"
+            report += newline + newline + "Here's a comparision against prior submissions:"
             for i, old_hash in enumerate(old_hashes):
                 date = strftime("%a %d %b %Y %H:%M:%S", gmtime(old_hash.get_date_created()))
                 score = "{0:0.5f}".format(scores[i])
-                print("{} ({}): {}: {}".format(i+1, date, old_hash.get_text()[0:51], score))
+                report += newline + "{} ({}): {}: {}".format(i+1, date, old_hash.get_text()[0:51], score)
+        if verbose:
+            print(report)
+        return report
 
     def score(self, new_hash, old_hashes):
         """Return average similarity score or -1 if first"""
@@ -96,9 +108,11 @@ class Comparison:
         def get_similarity(hash1, hash2):
             """Return sklearn's cosine_similarity for neural vectors"""
             from sklearn.metrics.pairwise import cosine_similarity
+            
             neural1 = hash1.get_neural()
             neural2 = hash2.get_neural()
-            score = float(cosine_similarity([neural1], [neural2]))
+            score = cosine_similarity(neural1, neural2)
+            score = np.mean(score)
             return score
 
         scores = [get_similarity(new_hash, old_hash) for old_hash in old_hashes]
@@ -201,7 +215,7 @@ class Hash:
     def get_date_created(self):
         return self.author_hash["metadata"]["date_created"]
 
-class Origin:
+class Originality:
     'Originality Algorithm'
 
     def __init__(self):
@@ -211,24 +225,27 @@ class Origin:
         """Preprocess text and return neural output vector"""
 
         def preprocess_text(text):
-            """Tokenize and sequence text"""
-            #from keras.preprocessing.text import Tokenizer
-            from tensorflow.keras.preprocessing.sequence import pad_sequences
-            import pickle
-
-            with open(TOKENIZER, 'rb') as handle:
-                tokenizer = pickle.load(handle)
-            sequence = tokenizer.texts_to_sequences(text)
-            sequence = pad_sequences(sequence, maxlen=MAX_SEQUENCE_LENGTH)
-            return sequence
-
-        def get_prediction(sequence):
+            """Tokenize, sequence, and window text"""
+            import spacy
+            
+            nlp = spacy.load('en_core_web_md')
+            text_nlp = nlp(text)
+            sequence = [word.vector for word in text_nlp]
+            
+            # Returns list of sequences set to WINDOW_SIZE
+            windows = [sequence[i:i+WINDOW_SIZE] \
+                       for i in range(0, 
+                                      len(sequence)-WINDOW_SIZE, 
+                                      WINDOW_SPACING)]
+            return [windows]
+        
+        def get_prediction(sequences):
             """Load model and return prediction"""
             from tensorflow import keras
 
             model = keras.models.load_model(MODEL)
-            prediction = model.predict(sequence)
-            return prediction[-1]
+            prediction = model.predict(sequences)
+            return prediction
 
         sequence = preprocess_text(text)
         prediction = get_prediction(sequence)
